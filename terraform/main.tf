@@ -1,7 +1,16 @@
+locals {
+  amplify_app_id      = aws_amplify_app.resume_frontend.id
+  amplify_branch      = aws_amplify_branch.main_branch.branch_name
+  amplify_app_domain  = aws_amplify_app.resume_frontend.default_domain
+  amplify_default_url = "https://${local.amplify_branch}.${local.amplify_app_domain}"
+  # For API Gateway CORS origins
+  cors_origins = [for domain in var.custom_domain_names : "https://${domain}"]
+}
+
 resource "aws_dynamodb_table" "visitor_cnt" {
-  name           = "visitor_cnt"
-  hash_key       = "id"
-  billing_mode   = "PAY_PER_REQUEST"
+  name         = "visitor_cnt"
+  hash_key     = "id"
+  billing_mode = "PAY_PER_REQUEST"
 
   attribute {
     name = "id"
@@ -9,29 +18,65 @@ resource "aws_dynamodb_table" "visitor_cnt" {
   }
 }
 
+# Create IAM Role for Lambda
 resource "aws_iam_role" "lambda_exec" {
   name = "lambda_exec_role"
+
   assume_role_policy = jsonencode({
     Version = "2012-10-17",
-    Statement = [{
-      Action    = "sts:AssumeRole",
-      Effect    = "Allow",
-      Principal = { Service = "lambda.amazonaws.com" }
-    }]
+    Statement = [
+      {
+        Effect = "Allow",
+        Principal = {
+          Service = "lambda.amazonaws.com"
+        },
+        Action = "sts:AssumeRole"
+      }
+    ]
   })
 }
 
-resource "aws_iam_role_policy_attachment" "lambda_basic_execution" {
+# Attach AWS managed policy for CloudWatch Logs
+resource "aws_iam_role_policy_attachment" "lambda_logging" {
   role       = aws_iam_role.lambda_exec.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
+# Create a custom policy for DynamoDB access
+resource "aws_iam_policy" "lambda_dynamodb_policy" {
+  name        = "LambdaDynamoDBAccessPolicy"
+  description = "Allow Lambda to get/put/update visitor count in DynamoDB"
+
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Effect = "Allow",
+        Action = [
+          "dynamodb:GetItem",
+          "dynamodb:PutItem",
+          "dynamodb:UpdateItem"
+        ],
+        Resource = aws_dynamodb_table.visitor_cnt.arn
+      }
+    ]
+  })
+}
+
+# Attach the DynamoDB policy to the Lambda execution role
+resource "aws_iam_policy_attachment" "lambda_dynamodb_attach" {
+  name       = "LambdaAttachDynamoDBPolicy"
+  roles      = [aws_iam_role.lambda_exec.name]
+  policy_arn = aws_iam_policy.lambda_dynamodb_policy.arn
+}
+
+
 resource "aws_lambda_function" "get_visitor_count" {
-  function_name = "get_visitor_count"
-  role          = aws_iam_role.lambda_exec.arn
-  handler       = "get_visitor_count.lambda_handler"
-  runtime       = "python3.9"
-  filename      = "${path.module}/lambda.zip"
+  function_name    = "get_visitor_count"
+  role             = aws_iam_role.lambda_exec.arn
+  handler          = "get_visitor_count.lambda_handler"
+  runtime          = "python3.13"
+  filename         = "${path.module}/lambda.zip"
   source_code_hash = filebase64sha256("${path.module}/lambda.zip")
   environment {
     variables = {
@@ -43,13 +88,22 @@ resource "aws_lambda_function" "get_visitor_count" {
 resource "aws_apigatewayv2_api" "http_api" {
   name          = "visitor_api"
   protocol_type = "HTTP"
+
+  cors_configuration {
+    allow_origins     = concat([local.amplify_default_url], local.cors_origins)
+    allow_methods     = ["GET", "OPTIONS"]
+    allow_headers     = ["Content-Type"]
+    allow_credentials = false
+    expose_headers    = []
+    max_age           = 3600
+  }
 }
 
 resource "aws_apigatewayv2_integration" "lambda_integration" {
-  api_id             = aws_apigatewayv2_api.http_api.id
-  integration_type   = "AWS_PROXY"
-  integration_uri    = aws_lambda_function.get_visitor_count.invoke_arn
-  integration_method = "POST"
+  api_id                 = aws_apigatewayv2_api.http_api.id
+  integration_type       = "AWS_PROXY"
+  integration_uri        = aws_lambda_function.get_visitor_count.invoke_arn
+  integration_method     = "POST"
   payload_format_version = "2.0"
 }
 
@@ -74,27 +128,26 @@ resource "aws_lambda_permission" "api_permission" {
 }
 
 resource "aws_amplify_app" "resume_frontend" {
-  name       = "cloudresume-frontend"
-  repository = "https://github.com/rabie01/CloudResumeChallenge_Frontend.git"
-  oauth_token = var.github_token  # stored in Jenkins/TF vars, not hardcoded
-
+  name                 = "cloudresume-frontend"
+  repository           = "https://github.com/rabie01/CloudResumeChallenge_Frontend.git"
+  iam_service_role_arn = aws_iam_role.amplify_service.arn
+  #comented to use github app instead
+  oauth_token = var.github_token # stored in Jenkins/TF vars, not hardcoded
+  # build_spec not needed for static website but left for reference also can be add to frontend amplify.yml
   build_spec = <<BUILD_SPEC
 version: 1.0
 frontend:
   phases:
-    preBuild:
-      commands:
-        - npm install
     build:
       commands:
-        - npm run build
+        - echo "Static site, no build needed"
   artifacts:
-    baseDirectory: dist
+    baseDirectory: .
     files:
       - '**/*'
   cache:
     paths:
-      - node_modules/**/* 
+      - []
 BUILD_SPEC
 
   environment_variables = {
@@ -103,7 +156,64 @@ BUILD_SPEC
 }
 
 resource "aws_amplify_branch" "main_branch" {
-  app_id      = aws_amplify_app.resume_frontend.id
-  branch_name = "main"
-  stage       = "PRODUCTION"
+  app_id            = aws_amplify_app.resume_frontend.id
+  branch_name       = "main"
+  enable_auto_build = true
+  stage             = "PRODUCTION"
+}
+
+#may be this iam role is not needed
+
+resource "aws_iam_role" "amplify_service" {
+  name = "amplify_service_role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Effect = "Allow",
+        Principal = {
+          Service = "amplify.amazonaws.com"
+        },
+        Action = "sts:AssumeRole"
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "amplify_basic" {
+  role       = aws_iam_role.amplify_service.name
+  policy_arn = "arn:aws:iam::aws:policy/AdministratorAccess-Amplify"
+}
+
+resource "aws_amplify_domain_association" "custom_domain" {
+  app_id      = local.amplify_app_id
+  domain_name = var.custom_domain_names[1]
+
+  sub_domain {
+    branch_name = local.amplify_branch
+    prefix      = ""     # root domain
+  }
+
+  sub_domain {
+    branch_name = local.amplify_branch
+    prefix      = "www"  # www subdomain
+  }
+}
+
+
+
+
+resource "null_resource" "trigger_amplify_deployment" {
+  depends_on = [aws_amplify_branch.main_branch]
+
+  # Force this command to be triggered every time this terraform file is ran
+  triggers = {
+    always_run = "${timestamp()}"
+  }
+
+  # The command to be ran
+  provisioner "local-exec" {
+    command = "aws amplify start-job --app-id ${local.amplify_app_id} --branch-name ${local.amplify_branch} --job-type RELEASE"
+  }
 }
