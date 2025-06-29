@@ -69,15 +69,24 @@ resource "aws_iam_policy_attachment" "lambda_dynamodb_attach" {
   roles      = [aws_iam_role.lambda_exec.name]
   policy_arn = aws_iam_policy.lambda_dynamodb_policy.arn
 }
-
+#can also be done as a stage in cicd
+data "archive_file" "lambda_zip" {
+  type        = "zip"
+  source_file = "${path.module}/lambda/get_visitor_count.py"
+  output_path = "${path.module}/lambda.zip"
+}
 
 resource "aws_lambda_function" "get_visitor_count" {
   function_name    = "get_visitor_count"
   role             = aws_iam_role.lambda_exec.arn
   handler          = "get_visitor_count.lambda_handler"
   runtime          = "python3.13"
-  filename         = "${path.module}/lambda.zip"
-  source_code_hash = filebase64sha256("${path.module}/lambda.zip")
+  #tf only, no cicd
+  filename         = data.archive_file.lambda_zip.output_path
+  source_code_hash = data.archive_file.lambda_zip.output_base64sha256
+  #cicd
+  # filename         = "${path.module}/lambda.zip"
+  # source_code_hash = filebase64sha256("${path.module}/lambda.zip")
   environment {
     variables = {
       TABLE_NAME = aws_dynamodb_table.visitor_cnt.name
@@ -90,7 +99,8 @@ resource "aws_apigatewayv2_api" "http_api" {
   protocol_type = "HTTP"
 
   cors_configuration {
-    allow_origins     = concat([local.amplify_default_url], local.cors_origins)
+    # allow_origins     = concat([local.amplify_default_url], local.cors_origins)
+    allow_origins     = local.cors_origins
     allow_methods     = ["GET", "OPTIONS"]
     allow_headers     = ["Content-Type"]
     allow_credentials = false
@@ -141,6 +151,7 @@ frontend:
     build:
       commands:
         - echo "Static site, no build needed"
+        - sed -i 's|__API_URL__|'$API_URL'|g' js/get_count.js
   artifacts:
     baseDirectory: .
     files:
@@ -152,6 +163,7 @@ BUILD_SPEC
 
   environment_variables = {
     ENV = "production"
+    API_URL = aws_apigatewayv2_stage.default.invoke_url
   }
 }
 
