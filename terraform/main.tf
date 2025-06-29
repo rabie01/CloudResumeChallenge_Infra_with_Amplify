@@ -5,6 +5,7 @@ locals {
   amplify_default_url = "https://${local.amplify_branch}.${local.amplify_app_domain}"
   # For API Gateway CORS origins
   cors_origins = [for domain in var.custom_domain_names : "https://${domain}"]
+  api_domain = "api.${var.custom_domain_names[1]}"
 }
 
 resource "aws_dynamodb_table" "visitor_cnt" {
@@ -117,6 +118,76 @@ resource "aws_apigatewayv2_stage" "default" {
   api_id      = aws_apigatewayv2_api.http_api.id
   name        = "$default"
   auto_deploy = true
+}
+
+resource "aws_acm_certificate" "api_cert" {
+  domain_name       = local.api_domain
+  validation_method = "DNS"
+
+  lifecycle {
+    create_before_destroy = true
+  }
+
+  tags = {
+    Name = "ACM cert for ${local.api_domain}"
+  }
+}
+
+resource "aws_apigatewayv2_domain_name" "api_domain" {
+  domain_name = local.api_domain
+
+  domain_name_configuration {
+    certificate_arn = aws_acm_certificate_validation.api_cert_validation.certificate_arn
+    endpoint_type   = "REGIONAL"
+    security_policy = "TLS_1_2"
+  }
+}
+resource "aws_apigatewayv2_api_mapping" "api_map" {
+  api_id      = aws_apigatewayv2_api.http_api.id
+  domain_name = aws_apigatewayv2_domain_name.api_domain.id
+  stage       = aws_apigatewayv2_stage.default.name
+}
+
+data "aws_route53_zone" "primary" {
+  name         = var.hosted_zone_name  # e.g. "myresume.rabietech.dpdns.org"
+  private_zone = false
+}
+
+resource "aws_route53_record" "api_dns" {
+  zone_id = data.aws_route53_zone.primary.zone_id
+  name    = local.api_domain
+  type    = "A"
+
+  alias {
+    name                   = aws_apigatewayv2_domain_name.api_domain.domain_name_configuration[0].target_domain_name
+    zone_id                = aws_apigatewayv2_domain_name.api_domain.domain_name_configuration[0].hosted_zone_id
+    evaluate_target_health = false
+  }
+}
+
+
+
+resource "aws_route53_record" "api_cert_validation" {
+  for_each = {
+    for dvo in aws_acm_certificate.api_cert.domain_validation_options : dvo.domain_name => {
+      name   = dvo.resource_record_name
+      type   = dvo.resource_record_type
+      record = dvo.resource_record_value
+    }
+  }
+
+  zone_id = data.aws_route53_zone.primary.zone_id
+  name    = each.value.name
+  type    = each.value.type
+  ttl     = 60
+  records = [each.value.record]
+}
+
+resource "aws_acm_certificate_validation" "api_cert_validation" {
+  certificate_arn         = aws_acm_certificate.api_cert.arn
+  validation_record_fqdns = [
+  for record in aws_route53_record.api_cert_validation : record.fqdn
+]
 }
 
 resource "aws_lambda_permission" "api_permission" {

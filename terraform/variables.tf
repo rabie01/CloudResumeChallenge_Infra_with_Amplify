@@ -3,6 +3,13 @@ variable "github_token" {
   type        = string
   sensitive   = true
 }
+
+variable "hosted_zone_name" {
+  description = "The root domain name that has a Route 53 hosted zone (e.g., rabietech.dpdns.org)"
+  type        = string
+  default     = "rabietech.dpdns.org"
+}
+
 variable "custom_domain_names" {
   type = list(string)
   description = "List of custom domains (no protocol, e.g. 'myresume.rabietech.dpdns.org')"
@@ -11,3 +18,4 @@ variable "custom_domain_names" {
     "myresume.rabietech.dpdns.org"
   ]
 }
+
