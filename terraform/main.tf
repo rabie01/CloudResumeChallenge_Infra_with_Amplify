@@ -89,7 +89,7 @@ resource "aws_lambda_function" "get_visitor_count" {
 resource "aws_apigatewayv2_api" "http_api" {
   name          = "visitor_api"
   protocol_type = "HTTP"
-
+  # not all those configs needed in this case allow_origins=* would be enouph. good for refernce
   cors_configuration {
     allow_origins     = concat([local.amplify_default_url], local.cors_origins)
     allow_methods     = ["GET", "OPTIONS"]
@@ -149,7 +149,7 @@ resource "aws_apigatewayv2_api_mapping" "api_map" {
 }
 
 data "aws_route53_zone" "primary" {
-  name         = var.hosted_zone_name  # e.g. "myresume.rabietech.dpdns.org"
+  name         = var.hosted_zone_name  
   private_zone = false
 }
 
@@ -200,7 +200,7 @@ resource "aws_lambda_permission" "api_permission" {
 
 resource "aws_amplify_app" "resume_frontend" {
   name                 = "cloudresume-frontend"
-  repository           = "https://github.com/rabie01/CloudResumeChallenge_Frontend.git"
+  repository           = var.fronend_repo_url
   iam_service_role_arn = aws_iam_role.amplify_service.arn
   #comented to use github app instead
   oauth_token = var.github_token # stored in Jenkins/TF vars, not hardcoded

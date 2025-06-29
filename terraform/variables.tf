@@ -19,3 +19,8 @@ variable "custom_domain_names" {
   ]
 }
 
+variable "fronend_repo_url" {
+  description = "url for the frontend repo"
+  default = "https://github.com/rabie01/CloudResumeChallenge_Frontend.git"
+}
+
