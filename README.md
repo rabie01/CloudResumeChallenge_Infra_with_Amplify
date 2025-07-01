@@ -10,6 +10,25 @@ This project implements the [Cloud Resume Challenge](https://cloudresumechalleng
 
 ---
 
+## 🧾 Branch Overview
+
+This project consists of three branches, each showcasing a different Terraform structure or feature:
+
+- **`main`**  
+  - Contains a monolithic Terraform setup (no modules).
+  - All resources are declared in a single set of `.tf` files.
+
+- **`modularized`**  
+  - Refactors the infrastructure using Terraform modules.
+  - Each AWS service (Lambda, API Gateway, Amplify, etc.) is organized in its own module for better reusability and scalability.
+
+- **`api_custom_domain`**  
+  - Based on the non-modular structure.
+  - Focuses on attaching a **custom domain** to the API Gateway endpoint.
+  - Allows the frontend to call the backend using a user-friendly domain name instead of the default API Gateway URL.
+
+----
+
 ## ⚙️ Services & Tools Used
 
 | Category             | Tool / Service                  | Purpose                                 |
@@ -50,7 +69,11 @@ Before deploying or modifying the infrastructure, make sure you have:
 
 ### [CloudResumeChallenge_Infra_with_Amplify](https://github.com/rabie01/CloudResumeChallenge_Infra_with_Amplify/tree/modularized)
 
-- Modular Terraform setup:
+## 📁 Modular Terraform Setup (Branch: `modularized`)
+
+The `modularized` branch organizes infrastructure using a clean module-based structure:
+
+```text
 terraform/
 ├── main.tf
 ├── backend.tf
@@ -58,13 +81,14 @@ terraform/
 ├── output.tf
 ├── provider.tf
 ├── modules/
-│ ├── Amplify/
-│ ├── ApiGateway/
-│ ├── Lambda/
-│ ├── Dynamodb/
-│ 
+│   ├── Amplify/
+│   ├── ApiGateway/
+│   ├── Lambda/
+│   ├── Dynamodb/
+│
 scripts/
 └── zip_lambda.sh
+
 
 - Jenkins pipeline automates Lambda packaging and Terraform deployment
 
@@ -99,7 +123,6 @@ scripts/
 | **Lambda**    | Deploys Python Lambda function for visitor counting           |
 | **ApiGateway**| Creates HTTP API Gateway to expose the Lambda                 |
 | **Dynamodb**  | Creates table `visitor_cnt` to store count                    |
-|--------------------------------------------------------------------------------
 
 ---
 
