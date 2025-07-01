@@ -28,12 +28,12 @@ pipeline {
 
         stage('Terraform plan') {
       when {
-                expression {params.APPLY_TERRAFORM}
+                expression {params.PLAN_TERRAFORM}
             }
 
       steps {
         withCredentials([string(credentialsId: 'github_amplify', variable: 'TF_VAR_github_token')]) {
-          sh 'cd terraform && terraform plan -auto-approve'
+          sh 'cd terraform && terraform plan'
       }
     }
   }
