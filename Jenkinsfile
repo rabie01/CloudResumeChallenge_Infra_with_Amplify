@@ -18,7 +18,8 @@ pipeline {
     }
     stage('Terraform Apply') {
       steps {
-        sh 'cd terraform && terraform apply -auto-approve'
+        withCredentials([string(credentialsId: 'github_amplify', variable: 'TF_VAR_github_token')]) {
+          sh 'cd terraform && terraform apply -auto-approve'
       }
     }
   }
