@@ -7,6 +7,7 @@ pipeline {
   stages {
     stage('Prepare Lambda ZIP') {
       steps {
+        sh 'chmod +x ./scripts/zip_lambda.sh'
         sh './scripts/zip_lambda.sh'
       }
     }
