@@ -180,6 +180,6 @@ Located in the `terraform/lambda/` directory and executed by `zip_lambda.sh`, th
 **Rabie Rabie**  
 📧 [rabeea2100@yahoo.com](mailto:rabeea2100@yahoo.com)  
 🔗 [myresume.rabietech.dpdns.org](https://myresume.rabietech.dpdns.org)  
-🐙 [GitHub Profile](https://github.com/rabie01)
+🐙 [GitHub Profile](https://github.com/rabie01)  
 GitHub: [@rabie01](https://github.com/rabie01)
 
