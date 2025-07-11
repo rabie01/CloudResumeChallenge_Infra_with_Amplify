@@ -6,7 +6,7 @@ This project implements the [Cloud Resume Challenge](https://cloudresumechalleng
 
 📁 **Repositories:**
 - **Frontend:** [CloudResumeChallenge_Frontend](https://github.com/rabie01/CloudResumeChallenge_Frontend)
-- **Infrastructure:** [CloudResumeChallenge_Infra_with_Amplify (modularized)](https://github.com/rabie01/CloudResumeChallenge_Infra_with_Amplify/tree/modularized)
+- **Infrastructure:** [CloudResumeChallenge_AWS_Terraform_Jenkins (modularized)](https://github.com/rabie01/CloudResumeChallenge_AWS_Terraform_Jenkins/tree/modularized)
 
 ---
 
@@ -70,7 +70,7 @@ Before deploying or modifying the infrastructure, make sure you have:
 
 ---
 
-### [CloudResumeChallenge_Infra_with_Amplify](https://github.com/rabie01/CloudResumeChallenge_Infra_with_Amplify/tree/modularized)
+### [CloudResumeChallenge_AWS_Terraform_Jenkins](https://github.com/rabie01/CloudResumeChallenge_AWS_Terraform_Jenkins/tree/modularized)
 
 #### 📁 Modular Terraform Setup (Branch: `modularized`)
 
@@ -181,4 +181,5 @@ Located in the `terraform/lambda/` directory and executed by `zip_lambda.sh`, th
 📧 [rabeea2100@yahoo.com](mailto:rabeea2100@yahoo.com)  
 🔗 [myresume.rabietech.dpdns.org](https://myresume.rabietech.dpdns.org)  
 🐙 [GitHub Profile](https://github.com/rabie01)
+GitHub: [@rabie01](https://github.com/rabie01)
 
